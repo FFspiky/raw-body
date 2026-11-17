@@ -1,0 +1,32 @@
+name: Cross-realm validation
+on:
+  push:
+    branches: [ci/cross-realm-validation]
+permissions:
+  contents: read
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [22, 26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 8c46225be9cc530d98614e60e341a2f057f4944d
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Record revision and runtime
+        run: |
+          git rev-parse HEAD
+          node --version
+      - run: npm ci
+      - run: npm run test:ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run size
