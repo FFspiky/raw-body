@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import http from 'node:http'
 import net from 'node:net'
+import { runInNewContext } from 'node:vm'
 import { Readable } from 'node:stream'
 import type { ReadableWritablePair } from 'node:stream/web'
 import iconv from 'iconv-lite'
@@ -28,6 +29,40 @@ describe('using web streams', function () {
     const buf = await getRawBodyWeb(createWebStream(['hello', ', ', 'world!']))
     assert.ok(Buffer.isBuffer(buf))
     assert.strictEqual(buf.toString(), 'hello, world!')
+  })
+
+  it('should read byte chunks from another realm', async function () {
+    const chunks: Uint8Array[] = runInNewContext('[new Uint8Array([0, 104, 195, 0]).subarray(1, 3), new Uint8Array([169])]')
+    assert.strictEqual(chunks[0] instanceof Uint8Array, false)
+    const stream = createWebStream(chunks)
+    assert.deepStrictEqual(await getRawBodyWeb(stream), Buffer.from('hé'))
+    assert.strictEqual(stream.locked, false)
+  })
+
+  it('should decode byte chunks from another realm', async function () {
+    const chunks: Uint8Array[] = runInNewContext('[new Uint8Array([104, 195]), new Uint8Array([169])]')
+    assert.strictEqual(await getRawBodyWeb(createWebStream(chunks), 'utf-8'), 'hé')
+  })
+
+  it('should enforce byte limits for chunks from another realm', async function () {
+    const chunks: Uint8Array[] = runInNewContext('[new Uint8Array([104, 195, 169])]')
+    const stream = createWebStream(chunks)
+    await assert.rejects(getRawBodyWeb(stream, { limit: 2 }), { type: 'entity.too.large', received: 3, limit: 2 })
+    assert.strictEqual(stream.locked, false)
+  })
+
+  it('should reject other array views and objects from another realm', async function () {
+    for (const expression of [
+      'new Uint8ClampedArray([1])',
+      'new Int8Array([1])',
+      'new Uint16Array([1])',
+      'new DataView(new ArrayBuffer(1))',
+      '({ 0: 1, length: 1, byteLength: 1, [Symbol.toStringTag]: "Uint8Array" })'
+    ]) {
+      const stream = createWebStream([runInNewContext(expression)])
+      await assert.rejects(getRawBodyWeb(stream), /Uint8Array or string/)
+      assert.strictEqual(stream.locked, false)
+    }
   })
 
   it('should read an empty ReadableStream', async function () {

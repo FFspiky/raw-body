@@ -7,6 +7,7 @@
 
 import { AsyncResource } from 'node:async_hooks'
 import { Readable } from 'node:stream'
+import { isUint8Array } from 'node:util/types'
 import type { ReadableStreamReadResult } from 'node:stream/web'
 import bytes from 'bytes'
 import createError from 'http-errors'
@@ -679,7 +680,7 @@ function readWebStream (stream: ReadableStream<Uint8Array | string>, encoding: s
       // a string-emitting stream (e.g. TextDecoderStream) is already
       // text: encode it back to utf-8 bytes
       chunk = Buffer.from(value)
-    } else if (value instanceof Uint8Array) {
+    } else if (isUint8Array(value)) {
       // kept as-is, not wrapped in a Buffer: concat and the decoder
       // both accept a Uint8Array
       chunk = value

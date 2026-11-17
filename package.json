@@ -36,10 +36,11 @@
   "size-limit": [
     {
       "path": "dist/index.js",
-      "limit": "4.56 KB",
+      "limit": "4.57 KB",
       "ignore": [
         "node:async_hooks",
-        "node:stream"
+        "node:stream",
+        "node:util/types"
       ]
     }
   ],
